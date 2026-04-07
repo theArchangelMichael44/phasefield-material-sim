@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alpha Material Phase Playground v2</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121922;
+      --text: #d7e3f4;
+      --muted: #8ea3bf;
+      --accent: #8fc7ff;
+      --line: #223245;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #controls {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 14px;
+      overflow-y: auto;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin: 18px 0 8px 0;
+      font-size: 14px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    p, .small {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .row {
+      margin: 10px 0 14px 0;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    input[type="range"],
+    select,
+    button {
+      width: 100%;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    select, button {
+      background: #182332;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    #viewport {
+      position: relative;
+      overflow: hidden;
+    }
+
+    #simCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background:
+        radial-gradient(circle at center, rgba(120,160,220,0.08), transparent 40%),
+        linear-gradient(180deg, #071019 0%, #05080d 100%);
+    }
+
+    #hud {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 320px;
+      background: rgba(10, 16, 24, 0.84);
+      border: 1px solid rgba(143, 199, 255, 0.18);
+      border-radius: 12px;
+      padding: 12px;
+      backdrop-filter: blur(6px);
+      font-size: 13px;
+      line-height: 1.45;
+      pointer-events: none;
+    }
+
+    #hud strong,
+    #phaseBadge,
+    #forceBadge {
+      color: var(--accent);
+    }
+
+    .legend-item {
+      margin-top: 8px;
+      color: var(--muted);
+    }
+
+    .footer-note {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    code {
+      color: #b8e0ff;
+      background: rgba(255,255,255,0.04);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="controls">
+      <h1>Material Phase Playground v2</h1>
+      <p>
+        A refined sandbox for exploring <strong>expansion, restructuring, metallic packing, and collapse</strong>
+        under competing <strong>EM-like</strong> and <strong>gravity-like</strong> rules.
+      </p>
+
+      <h2>Material Mode</h2>
+      <div class="row">
+        <label for="materialMode">Behavior preset</label>
+        <select id="materialMode">
+          <option value="ice">Ice / Open Lattice</option>
+          <option value="carbon">Carbon / Restructure</option>
+          <option value="metal">Metal / Dense Compression</option>
+          <option value="collapse">Collapse / Gravity Dominant</option>
+        </select>
+      </div>
+
+      <h2>Global Forces</h2>
+
+      <div class="row">
+        <label for="pressureSlider">
+          <span>Pressure</span>
+          <span id="pressureValue">0.55</span>
+        </label>
+        <input id="pressureSlider" type="range" min="0" max="1.5" step="0.01" value="0.55" />
+      </div>
+
+      <div class="row">
+        <label for="gravitySlider">
+          <span>Gravity</span>
+          <span id="gravityValue">0.65</span>
+        </label>
+        <input id="gravitySlider" type="range" min="0" max="2" step="0.01" value="0.65" />
+      </div>
+
+      <div class="row">
+        <label for="emSlider">
+          <span>EM Strength</span>
+          <span id="emValue">0.95</span>
+        </label>
+        <input id="emSlider" type="range" min="0" max="2" step="0.01" value="0.95" />
+      </div>
+
+      <div class="row">
+        <label for="temperatureSlider">
+          <span>Temperature</span>
+          <span id="temperatureValue">0.30</span>
+        </label>
+        <input id="temperatureSlider" type="range" min="0" max="1.5" step="0.01" value="0.30" />
+      </div>
+
+      <div class="row">
+        <label for="dampingSlider">
+          <span>Damping</span>
+          <span id="dampingValue">0.95</span>
+        </label>
+        <input id="dampingSlider" type="range" min="0.85" max="0.999" step="0.001" value="0.95" />
+      </div>
+
+      <h2>Population</h2>
+
+      <div class="row">
+        <label for="countSlider">
+          <span>Particle Count</span>
+          <span id="countValue">140</span>
+        </label>
+        <input id="countSlider" type="range" min="50" max="240" step="1" value="140" />
+      </div>
+
+      <div class="button-row">
+        <button id="resetBtn">Reset</button>
+        <button id="pauseBtn">Pause</button>
+      </div>
+
+      <h2>Quick Notes</h2>
+      <p class="small">
+        <strong>Ice:</strong> favors open spacing and hex-like bonds.<br />
+        <strong>Carbon:</strong> tends to restructure into multi-cluster bonds.<br />
+        <strong>Metal:</strong> already dense; mostly compresses with low flexibility.<br />
+        <strong>Collapse:</strong> gravity term overwhelms structure and can form a core.
+      </p>
+
+      <div class="footer-note">
+        Click inside the simulation area to add a local disturbance pulse. Bonds lock more readily at lower temperature.
+      </div>
+    </aside>
+
+    <main id="viewport">
+      <canvas id="simCanvas"></canvas>
+      <div id="hud">
+        <div><strong>Mode:</strong> <span id="hudMode">Ice / Open Lattice</span></div>
+        <div><strong>Mean Radius:</strong> <span id="hudRadius">0.00</span></div>
+        <div><strong>Mean Speed:</strong> <span id="hudSpeed">0.00</span></div>
+        <div><strong>Packing:</strong> <span id="hudPacking">0.00</span></div>
+        <div><strong>Bond Count:</strong> <span id="hudBondCount">0</span></div>
+        <div><strong>Force Ratio:</strong> <span id="hudForceRatio">0.00</span> <span id="forceBadge">Balanced</span></div>
+        <div><strong>Phase:</strong> <span id="phaseBadge">Initializing</span></div>
+        <div><strong>State:</strong> <span id="hudState">Initializing</span></div>
+        <div><strong>Core:</strong> <span id="hudCore">None</span></div>
+
+        <div class="legend-item">
+          <strong>Interpretation:</strong><br />
+          Larger radius = more open / expanded system<br />
+          Higher packing = denser / more compressed system<br />
+          More bonds = stronger lattice / cluster locking
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("simCanvas");
+    const ctx = canvas.getContext("2d");
+    const viewport = document.getElementById("viewport");
+
+    const materialModeEl = document.getElementById("materialMode");
+    const pressureSlider = document.getElementById("pressureSlider");
+    const gravitySlider = document.getElementById("gravitySlider");
+    const emSlider = document.getElementById("emSlider");
+    const temperatureSlider = document.getElementById("temperatureSlider");
+    const dampingSlider = document.getElementById("dampingSlider");
+    const countSlider = document.getElementById("countSlider");
+
+    const pressureValue = document.getElementById("pressureValue");
+    const gravityValue = document.getElementById("gravityValue");
+    const emValue = document.getElementById("emValue");
+    const temperatureValue = document.getElementById("temperatureValue");
+    const dampingValue = document.getElementById("dampingValue");
+    const countValue = document.getElementById("countValue");
+
+    const hudMode = document.getElementById("hudMode");
+    const hudRadius = document.getElementById("hudRadius");
+    const hudSpeed = document.getElementById("hudSpeed");
+    const hudPacking = document.getElementById("hudPacking");
+    const hudBondCount = document.getElementById("hudBondCount");
+    const hudForceRatio = document.getElementById("hudForceRatio");
+    const hudState = document.getElementById("hudState");
+    const hudCore = document.getElementById("hudCore");
+    const phaseBadge = document.getElementById("phaseBadge");
+    const forceBadge = document.getElementById("forceBadge");
+
+    const resetBtn = document.getElementById("resetBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+
+    let width = 0;
+    let height = 0;
+    let cx = 0;
+    let cy = 0;
+
+    let particles = [];
+    let lockedBonds = [];
+    let bondMap = new Map();
+    let isPaused = false;
+    let lastTime = performance.now();
+    let pulseEvents = [];
+    let coreActive = false;
+    let coreRadius = 0;
+
+    function resizeCanvas() {
+      width = viewport.clientWidth;
+      height = viewport.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+      cx = width * 0.5;
+      cy = height * 0.5;
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function wrapAngle(a) {
+      while (a > Math.PI) a -= Math.PI * 2;
+      while (a < -Math.PI) a += Math.PI * 2;
+      return a;
+    }
+
+    function bondKey(a, b) {
+      return a < b ? `${a}_${b}` : `${b}_${a}`;
+    }
+
+    function hexTargetAngle(index) {
+      return (index % 6) * (Math.PI / 3);
+    }
+
+    function tetraTargetAngle(index) {
+      const base = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+      return base[index % 4];
+    }
+
+    function getMaterialPreset(mode) {
+      if (mode === "ice") {
+        return {
+          label: "Ice / Open Lattice",
+          preferredRadius: 170,
+          radialBias: +1.0,
+          angularBias: 0.70,
+          compressibility: 0.25,
+          structuralFreedom: 0.90,
+          bondRange: 42,
+          desiredSpacing: 34,
+          lockThreshold: 0.60,
+          color: "rgba(160, 220, 255, 0.95)",
+          linkColor: "rgba(160, 220, 255, 0.16)",
+          glowColor: "rgba(120, 200, 255, 0.10)",
+          coreColor: "rgba(170,230,255,0.22)",
+          angleFunction: hexTargetAngle
+        };
+      }
+      if (mode === "carbon") {
+        return {
+          label: "Carbon / Restructure",
+          preferredRadius: 130,
+          radialBias: -0.08,
+          angularBias: 1.00,
+          compressibility: 0.82,
+          structuralFreedom: 0.96,
+          bondRange: 34,
+          desiredSpacing: 24,
+          lockThreshold: 0.55,
+          color: "rgba(255, 235, 160, 0.95)",
+          linkColor: "rgba(255, 220, 130, 0.18)",
+          glowColor: "rgba(255, 220, 130, 0.10)",
+          coreColor: "rgba(255,220,150,0.22)",
+          angleFunction: tetraTargetAngle
+        };
+      }
+      if (mode === "metal") {
+        return {
+          label: "Metal / Dense Compression",
+          preferredRadius: 105,
+          radialBias: -0.45,
+          angularBias: 0.25,
+          compressibility: 1.00,
+          structuralFreedom: 0.28,
+          bondRange: 28,
+          desiredSpacing: 18,
+          lockThreshold: 0.50,
+          color: "rgba(255, 190, 120, 0.95)",
+          linkColor: "rgba(255, 190, 120, 0.22)",
+          glowColor: "rgba(255, 190, 120, 0.08)",
+          coreColor: "rgba(255,200,120,0.25)",
+          angleFunction: tetraTargetAngle
+        };
+      }
+      return {
+        label: "Collapse / Gravity Dominant",
+        preferredRadius: 65,
+        radialBias: -1.2,
+        angularBias: 0.05,
+        compressibility: 1.30,
+        structuralFreedom: 0.10,
+        bondRange: 24,
+        desiredSpacing: 14,
+        lockThreshold: 0.42,
+        color: "rgba(255, 120, 160, 0.95)",
+        linkColor: "rgba(255, 120, 160, 0.18)",
+        glowColor: "rgba(255, 120, 160, 0.08)",
+        coreColor: "rgba(255,120,180,0.26)",
+        angleFunction: tetraTargetAngle
+      };
+    }
+
+    function updateReadouts() {
+      pressureValue.textContent = Number(pressureSlider.value).toFixed(2);
+      gravityValue.textContent = Number(gravitySlider.value).toFixed(2);
+      emValue.textContent = Number(emSlider.value).toFixed(2);
+      temperatureValue.textContent = Number(temperatureSlider.value).toFixed(2);
+      dampingValue.textContent = Number(dampingSlider.value).toFixed(3);
+      countValue.textContent = countSlider.value;
+    }
+
+    [pressureSlider, gravitySlider, emSlider, temperatureSlider, dampingSlider, countSlider, materialModeEl].forEach(el => {
+      el.addEventListener("input", updateReadouts);
+    });
+
+    function createParticles() {
+      particles = [];
+      lockedBonds = [];
+      bondMap = new Map();
+      const count = Number(countSlider.value);
+      const preset = getMaterialPreset(materialModeEl.value);
+
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + rand(-0.12, 0.12);
+        const radius = preset.preferredRadius * rand(0.35, 1.0);
+        particles.push({
+          id: i,
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+          vx: rand(-0.2, 0.2),
+          vy: rand(-0.2, 0.2),
+          groupIndex: i,
+          mass: rand(0.8, 1.2),
+          size: rand(2.5, 4.8),
+          bondCount: 0
+        });
+      }
+    }
+
+    function resetSimulation() {
+      pulseEvents = [];
+      coreActive = false;
+      coreRadius = 0;
+      createParticles();
+    }
+
+    resetBtn.addEventListener("click", resetSimulation);
+
+    pauseBtn.addEventListener("click", () => {
+      isPaused = !isPaused;
+      pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+    });
+
+    canvas.addEventListener("click", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      pulseEvents.push({
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+        radius: 10,
+        strength: 2.8,
+        life: 1.0
+      });
+    });
+
+    function applyPulses(dt) {
+      for (const pulse of pulseEvents) {
+        pulse.radius += 220 * dt;
+        pulse.life -= 0.5 * dt;
+      }
+      pulseEvents = pulseEvents.filter(p => p.life > 0);
+    }
+
+    function rebuildBondCounts() {
+      for (const p of particles) p.bondCount = 0;
+      for (const bond of lockedBonds) {
+        particles[bond.a].bondCount += 1;
+        particles[bond.b].bondCount += 1;
+      }
+    }
+
+    function addOrUpdateBond(a, b, targetLength, strength) {
+      const key = bondKey(a, b);
+      const existing = bondMap.get(key);
+      if (existing !== undefined) {
+        const bond = lockedBonds[existing];
+        bond.targetLength = targetLength;
+        bond.strength = strength;
+        bond.life = Math.min(1.0, bond.life + 0.08);
+        return;
+      }
+      const bond = { a, b, targetLength, strength, life: 0.65 };
+      lockedBonds.push(bond);
+      bondMap.set(key, lockedBonds.length - 1);
+    }
+
+    function removeBondAt(index) {
+      const lastIndex = lockedBonds.length - 1;
+      const removed = lockedBonds[index];
+      bondMap.delete(bondKey(removed.a, removed.b));
+      if (index !== lastIndex) {
+        const moved = lockedBonds[lastIndex];
+        lockedBonds[index] = moved;
+        bondMap.set(bondKey(moved.a, moved.b), index);
+      }
+      lockedBonds.pop();
+    }
+
+    function updateBondLocking(preset, temperature, desiredSpacing) {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j];
+          const dx = q.x - p.x;
+          const dy = q.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > preset.bondRange) continue;
+
+          const relativeSpeed = Math.hypot(q.vx - p.vx, q.vy - p.vy);
+          const speedGate = preset.lockThreshold + temperature * 0.9;
+          const spacingGate = Math.abs(dist - desiredSpacing) < (preset.bondRange * 0.20 + temperature * 5);
+
+          if (relativeSpeed < speedGate && spacingGate) {
+            const bondStrength = (1.0 - clamp(temperature / 1.5, 0, 1)) * (0.055 + preset.structuralFreedom * 0.02);
+            addOrUpdateBond(i, j, desiredSpacing, bondStrength);
+          }
+        }
+      }
+
+      for (let i = lockedBonds.length - 1; i >= 0; i--) {
+        const bond = lockedBonds[i];
+        const p = particles[bond.a];
+        const q = particles[bond.b];
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const relSpeed = Math.hypot(q.vx - p.vx, q.vy - p.vy);
+
+        const tooHot = relSpeed > (1.2 + temperature * 1.9);
+        const tooFar = dist > preset.bondRange * 1.25;
+        const tooClose = dist < preset.desiredSpacing * 0.45;
+
+        if (tooHot || tooFar || tooClose) {
+          bond.life -= 0.05 + temperature * 0.03;
+        } else {
+          bond.life = Math.min(1.0, bond.life + 0.01);
+        }
+
+        if (bond.life <= 0) {
+          removeBondAt(i);
+        }
+      }
+
+      rebuildBondCounts();
+    }
+
+    function applyLockedBonds(dt) {
+      for (const bond of lockedBonds) {
+        const p = particles[bond.a];
+        const q = particles[bond.b];
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        const error = dist - bond.targetLength;
+        const force = error * bond.strength * bond.life * dt * 60;
+
+        p.vx += ux * force;
+        p.vy += uy * force;
+        q.vx -= ux * force;
+        q.vy -= uy * force;
+      }
+    }
+
+    function determineDesiredSpacing(mode, pressure) {
+      if (mode === "ice") return 34 + pressure * 8;
+      if (mode === "carbon") return 24 - pressure * 4;
+      if (mode === "metal") return 18 - pressure * 2;
+      return 14 - pressure * 1.5;
+    }
+
+    function stepSimulation(dt) {
+      const mode = materialModeEl.value;
+      const preset = getMaterialPreset(mode);
+      const pressure = Number(pressureSlider.value);
+      const gravity = Number(gravitySlider.value);
+      const emStrength = Number(emSlider.value);
+      const temperature = Number(temperatureSlider.value);
+      const damping = Number(dampingSlider.value);
+      const desiredSpacing = determineDesiredSpacing(mode, pressure);
+
+      const pressureRadiusShift = 1.0 - pressure * 0.28 * preset.compressibility;
+      const targetRadius = clamp(preset.preferredRadius * pressureRadiusShift, 28, Math.min(width, height) * 0.43);
+
+      applyPulses(dt);
+      updateBondLocking(preset, temperature, desiredSpacing);
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const r = Math.hypot(dx, dy) || 0.0001;
+        const angle = Math.atan2(dy, dx);
+        const radialUnitX = dx / r;
+        const radialUnitY = dy / r;
+        const tangentUnitX = -radialUnitY;
+        const tangentUnitY = radialUnitX;
+
+        const gravityForce = gravity * (0.18 + pressure * 0.12);
+        p.vx += -radialUnitX * gravityForce * dt;
+        p.vy += -radialUnitY * gravityForce * dt;
+
+        const radiusError = targetRadius - r;
+        const radialSpring = radiusError * (0.9 + Math.abs(preset.radialBias) * 0.4);
+        p.vx += radialUnitX * radialSpring * emStrength * 0.008 * (preset.radialBias >= 0 ? 1.0 : 0.6) * dt * 60;
+        p.vy += radialUnitY * radialSpring * emStrength * 0.008 * (preset.radialBias >= 0 ? 1.0 : 0.6) * dt * 60;
+
+        if (preset.radialBias > 0) {
+          p.vx += radialUnitX * preset.radialBias * emStrength * 0.025 * dt * 60;
+          p.vy += radialUnitY * preset.radialBias * emStrength * 0.025 * dt * 60;
+        } else {
+          p.vx += radialUnitX * preset.radialBias * gravity * 0.018 * dt * 60;
+          p.vy += radialUnitY * preset.radialBias * gravity * 0.018 * dt * 60;
+        }
+
+        const targetAngle = preset.angleFunction(p.groupIndex);
+        const angleError = wrapAngle(targetAngle - angle);
+        const angularForce = angleError * preset.angularBias * emStrength * 0.04;
+        p.vx += tangentUnitX * angularForce * dt * 60;
+        p.vy += tangentUnitY * angularForce * dt * 60;
+
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j];
+          const ddx = q.x - p.x;
+          const ddy = q.y - p.y;
+          const dist = Math.hypot(ddx, ddy) || 0.0001;
+          if (dist < 90) {
+            const ux = ddx / dist;
+            const uy = ddy / dist;
+            const spacingError = dist - desiredSpacing;
+            const pairStrength = emStrength * (0.012 + preset.structuralFreedom * 0.014) * (mode === "metal" ? 0.7 : 1.0);
+            const fx = ux * spacingError * pairStrength * dt * 60;
+            const fy = uy * spacingError * pairStrength * dt * 60;
+            p.vx += fx;
+            p.vy += fy;
+            q.vx -= fx;
+            q.vy -= fy;
+
+            if (dist < desiredSpacing * 0.72) {
+              const repel = (desiredSpacing * 0.72 - dist) * 0.02 * dt * 60;
+              p.vx -= ux * repel;
+              p.vy -= uy * repel;
+              q.vx += ux * repel;
+              q.vy += uy * repel;
+            }
+          }
+        }
+
+        for (const pulse of pulseEvents) {
+          const pdx = p.x - pulse.x;
+          const pdy = p.y - pulse.y;
+          const pr = Math.hypot(pdx, pdy) || 0.0001;
+          if (pr < pulse.radius) {
+            const puX = pdx / pr;
+            const puY = pdy / pr;
+            const kick = (1 - pr / pulse.radius) * pulse.strength * pulse.life;
+            p.vx += puX * kick;
+            p.vy += puY * kick;
+          }
+        }
+
+        const thermalKick = temperature * 0.05;
+        p.vx += rand(-thermalKick, thermalKick);
+        p.vy += rand(-thermalKick, thermalKick);
+
+        p.vx *= damping;
+        p.vy *= damping;
+      }
+
+      applyLockedBonds(dt);
+
+      for (const p of particles) {
+        p.x += p.vx * dt * 60;
+        p.y += p.vy * dt * 60;
+
+        const boundPad = 18;
+        if (p.x < boundPad) { p.x = boundPad; p.vx *= -0.45; }
+        if (p.x > width - boundPad) { p.x = width - boundPad; p.vx *= -0.45; }
+        if (p.y < boundPad) { p.y = boundPad; p.vy *= -0.45; }
+        if (p.y > height - boundPad) { p.y = height - boundPad; p.vy *= -0.45; }
+      }
+
+      updateCoreDetection();
+      updateHUD();
+    }
+
+    function updateCoreDetection() {
+      let centerCount = 0;
+      let tightest = 9999;
+      for (const p of particles) {
+        const r = Math.hypot(p.x - cx, p.y - cy);
+        if (r < 55) centerCount += 1;
+        tightest = Math.min(tightest, r);
+      }
+      coreActive = centerCount >= Math.max(12, particles.length * 0.14);
+      coreRadius = tightest;
+    }
+
+    function drawBackgroundGlow(mode) {
+      const preset = getMaterialPreset(mode);
+      const grd = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.min(width, height) * 0.45);
+      grd.addColorStop(0, preset.glowColor);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.min(width, height) * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawCore(preset) {
+      if (!coreActive) return;
+      ctx.save();
+      const pulse = 8 + Math.sin(performance.now() * 0.008) * 2;
+      const grd = ctx.createRadialGradient(cx, cy, 2, cx, cy, 22 + pulse);
+      grd.addColorStop(0, preset.coreColor);
+      grd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22 + pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawSimulation() {
+      const mode = materialModeEl.value;
+      const preset = getMaterialPreset(mode);
+      ctx.clearRect(0, 0, width, height);
+      drawBackgroundGlow(mode);
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(110, 160, 220, 0.08)";
+      ctx.lineWidth = 1;
+      for (let ring = 1; ring <= 5; ring++) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, ring * 55, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      drawCore(preset);
+
+      ctx.save();
+      ctx.lineWidth = 1.4;
+      for (const bond of lockedBonds) {
+        const p = particles[bond.a];
+        const q = particles[bond.b];
+        ctx.globalAlpha = Math.max(0.10, bond.life * 0.95);
+        ctx.strokeStyle = preset.linkColor;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      for (const pulse of pulseEvents) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(180,220,255,${0.35 * pulse.life})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(pulse.x, pulse.y, pulse.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      for (const p of particles) {
+        const speed = Math.hypot(p.vx, p.vy);
+        const sizeBoost = p.bondCount > 0 ? Math.min(1.2, p.bondCount * 0.08) : 0;
+        ctx.save();
+        ctx.fillStyle = preset.color;
+        ctx.shadowBlur = 10 + speed * 2 + p.bondCount * 1.4;
+        ctx.shadowColor = preset.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size + sizeBoost, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.strokeStyle = coreActive ? "rgba(255,255,255,0.20)" : "rgba(180,220,255,0.18)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateHUD() {
+      const preset = getMaterialPreset(materialModeEl.value);
+      hudMode.textContent = preset.label;
+
+      let radiusSum = 0;
+      let speedSum = 0;
+      let nearPairs = 0;
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        radiusSum += Math.hypot(p.x - cx, p.y - cy);
+        speedSum += Math.hypot(p.vx, p.vy);
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j];
+          const d = Math.hypot(q.x - p.x, q.y - p.y);
+          if (d < 24) nearPairs++;
+        }
+      }
+
+      const meanRadius = particles.length ? radiusSum / particles.length : 0;
+      const meanSpeed = particles.length ? speedSum / particles.length : 0;
+      const packing = nearPairs / Math.max(1, particles.length);
+      const bondCount = lockedBonds.length;
+      const gravity = Number(gravitySlider.value);
+      const em = Number(emSlider.value);
+      const forceRatio = em / Math.max(0.001, gravity);
+
+      hudRadius.textContent = meanRadius.toFixed(2);
+      hudSpeed.textContent = meanSpeed.toFixed(2);
+      hudPacking.textContent = packing.toFixed(2);
+      hudBondCount.textContent = String(bondCount);
+      hudForceRatio.textContent = forceRatio.toFixed(2);
+
+      let forceText = "Balanced";
+      if (forceRatio > 1.25) forceText = "EM-dominant";
+      else if (forceRatio < 0.85) forceText = "Gravity-dominant";
+      forceBadge.textContent = forceText;
+
+      let phaseText = "Transitional";
+      if (meanRadius > 165 && bondCount > 18) phaseText = "Expanded lattice";
+      else if (bondCount > 26 && packing > 2.1) phaseText = "Structured crystal";
+      else if (packing > 3.0 && meanRadius < 150) phaseText = "Compressed dense";
+      else if (coreActive) phaseText = "Collapse core";
+      phaseBadge.textContent = phaseText;
+
+      let stateText = "Balanced";
+      const mode = materialModeEl.value;
+      if (mode === "ice") {
+        if (meanRadius > 160 && bondCount > 16) stateText = "Hex-like open locking";
+        else if (bondCount < 8) stateText = "Warm drifting lattice";
+        else stateText = "Open structured phase";
+      } else if (mode === "carbon") {
+        if (bondCount > 20 && packing > 1.9) stateText = "Restructuring bonded clusters";
+        else if (meanRadius > 150) stateText = "Loose carbon field";
+        else stateText = "Transitional crystal behavior";
+      } else if (mode === "metal") {
+        if (packing > 3.0 && bondCount > 14) stateText = "Dense metallic packing";
+        else if (meanSpeed > 1.8) stateText = "Vibrational compression";
+        else stateText = "Compressed metal-like phase";
+      } else {
+        if (coreActive) stateText = "Core collapse detected";
+        else if (meanSpeed > 2.0) stateText = "Inward turbulent collapse";
+        else stateText = "Gravity-dominant contraction";
+      }
+      hudState.textContent = stateText;
+      hudCore.textContent = coreActive ? `Active @ ${coreRadius.toFixed(1)}` : "None";
+    }
+
+    function animate(now) {
+      const dt = Math.min(0.033, (now - lastTime) / 1000);
+      lastTime = now;
+      if (!isPaused) stepSimulation(dt);
+      drawSimulation();
+      requestAnimationFrame(animate);
+    }
+
+    materialModeEl.addEventListener("change", () => {
+      updateReadouts();
+      resetSimulation();
+    });
+    countSlider.addEventListener("change", resetSimulation);
+
+    updateReadouts();
+    resetSimulation();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
